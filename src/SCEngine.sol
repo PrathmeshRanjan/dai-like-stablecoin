@@ -223,6 +223,15 @@ contract SCEngine is ReentrancyGuard {
         _revertIfHealthFactorIsBroken(msg.sender);
     }
 
+    function getAccountInformation(address user)
+        public
+        view
+        returns (uint256 totalScMinted, uint256 collateralValueInUsd)
+    {
+        totalScMinted = _scMinted[user];
+        collateralValueInUsd = getAccountCollateralValueInUsd(user);
+    }
+
     ///////////////////////////////////////////
     //// PRIVATE & INTERNAL VIEW FUNCTIONS ////
     ///////////////////////////////////////////
@@ -246,17 +255,8 @@ contract SCEngine is ReentrancyGuard {
         }
     }
 
-    function _getAccountInformation(address user)
-        private
-        view
-        returns (uint256 totalScMinted, uint256 collateralValueInUsd)
-    {
-        totalScMinted = _scMinted[user];
-        collateralValueInUsd = getAccountCollateralValueInUsd(user);
-    }
-
     function _healthFactor(address user) private view returns (uint256) {
-        (uint256 totalScMinted, uint256 collateralValueInUsd) = _getAccountInformation(user);
+        (uint256 totalScMinted, uint256 collateralValueInUsd) = getAccountInformation(user);
         uint256 collateralAdjustedForThreshold =
             (collateralValueInUsd * _LIQUIDATION_THRESHOLD) / _LIQUIDATION_PRECISION;
         return (collateralAdjustedForThreshold * _PRECISION) / totalScMinted;
