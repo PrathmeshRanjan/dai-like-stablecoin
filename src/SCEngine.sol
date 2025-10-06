@@ -125,7 +125,6 @@ contract SCEngine is ReentrancyGuard {
         public
         moreThanZero(amountCollateral)
         isAllowedToken(tokenCollateralAddress)
-        nonReentrant
     {
         _collateralDeposited[msg.sender][tokenCollateralAddress] += amountCollateral;
         emit CollateralDeposited(msg.sender, tokenCollateralAddress, amountCollateral);
@@ -139,7 +138,7 @@ contract SCEngine is ReentrancyGuard {
      * @param amountScToMint: The amount of SC you want to mint
      * You can only mint SC if you have enough collateral
      */
-    function mintSc(uint256 amountScToMint) public moreThanZero(amountScToMint) nonReentrant {
+    function mintSc(uint256 amountScToMint) public moreThanZero(amountScToMint) {
         _scMinted[msg.sender] += amountScToMint;
         _revertIfHealthFactorIsBroken(msg.sender);
 
@@ -159,7 +158,6 @@ contract SCEngine is ReentrancyGuard {
         public
         moreThanZero(amountCollateral)
         isAllowedToken(tokenCollateralAddress)
-        nonReentrant
     {
         _redeemCollateral(tokenCollateralAddress, amountCollateral, msg.sender, msg.sender);
         _revertIfHealthFactorIsBroken(msg.sender); // This will revert all the previous steps if the health factor breaks.
@@ -176,7 +174,7 @@ contract SCEngine is ReentrancyGuard {
         redeemCollateral(tokenCollateralAddress, amountCollateral);
     }
 
-    function burnSc(uint256 amount) public moreThanZero(amount) nonReentrant {
+    function burnSc(uint256 amount) public moreThanZero(amount) {
         _burnSc(amount, msg.sender, msg.sender);
     }
 
@@ -223,15 +221,6 @@ contract SCEngine is ReentrancyGuard {
         _revertIfHealthFactorIsBroken(msg.sender);
     }
 
-    function getAccountInformation(address user)
-        public
-        view
-        returns (uint256 totalScMinted, uint256 collateralValueInUsd)
-    {
-        totalScMinted = _scMinted[user];
-        collateralValueInUsd = getAccountCollateralValueInUsd(user);
-    }
-
     ///////////////////////////////////////////
     //// PRIVATE & INTERNAL VIEW FUNCTIONS ////
     ///////////////////////////////////////////
@@ -242,12 +231,11 @@ contract SCEngine is ReentrancyGuard {
     }
 
     function _redeemCollateral(address tokenCollateralAddress, uint256 amountCollateral, address from, address to)
-        public
+        internal
         moreThanZero(amountCollateral)
         isAllowedToken(tokenCollateralAddress)
-        nonReentrant
     {
-        _collateralDeposited[msg.sender][tokenCollateralAddress] -= amountCollateral;
+        _collateralDeposited[from][tokenCollateralAddress] -= amountCollateral;
         emit CollateralRedeemed(from, to, tokenCollateralAddress, amountCollateral);
         bool success = IERC20(tokenCollateralAddress).transfer(to, amountCollateral);
         if (!success) {
@@ -257,6 +245,7 @@ contract SCEngine is ReentrancyGuard {
 
     function _healthFactor(address user) private view returns (uint256) {
         (uint256 totalScMinted, uint256 collateralValueInUsd) = getAccountInformation(user);
+        if (totalScMinted == 0) return type(uint256).max;
         uint256 collateralAdjustedForThreshold =
             (collateralValueInUsd * _LIQUIDATION_THRESHOLD) / _LIQUIDATION_PRECISION;
         return (collateralAdjustedForThreshold * _PRECISION) / totalScMinted;
@@ -278,6 +267,15 @@ contract SCEngine is ReentrancyGuard {
         }
     }
 
+    function getAccountInformation(address user)
+        public
+        view
+        returns (uint256 totalScMinted, uint256 collateralValueInUsd)
+    {
+        totalScMinted = _scMinted[user];
+        collateralValueInUsd = getAccountCollateralValueInUsd(user);
+    }
+
     function getUsdValue(address token, uint256 amount) public view returns (uint256) {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(_priceFeeds[token]);
         (, int256 price,,,) = priceFeed.latestRoundData();
@@ -292,5 +290,13 @@ contract SCEngine is ReentrancyGuard {
         // The returned value from Chainlink will be 2000 * 1e8
         // Most USD pairs have 8 decimals, so we will just pretend they all do
         return ((usdAmountInWei * _PRECISION) / (uint256(price) * _ADDITIONAL_FEED_PRECISION));
+    }
+
+    function getCollateralTokens() external view returns (address[] memory) {
+        return _collateralTokens;
+    }
+
+    function getCollateralBalanceOfUser(address user, address token) external view returns (uint256) {
+        return _collateralDeposited[user][token];
     }
 }

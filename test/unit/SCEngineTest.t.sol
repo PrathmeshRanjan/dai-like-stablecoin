@@ -67,7 +67,7 @@ contract SCEngineTest is Test {
         _;
     }
 
-    function testDepositCollateralUpdatesAccountInfo() external depositCollateral() {
+    function testDepositCollateralUpdatesAccountInfo() external depositCollateral {
         (uint256 scMinted, uint256 collateralValueInUsd) = scEngine.getAccountInformation(USER);
         uint256 tokenAmount = scEngine.getTokenAmountFromUsd(weth, collateralValueInUsd);
         assertEq(scMinted, 0);
